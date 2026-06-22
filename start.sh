@@ -14,9 +14,9 @@ BACKEND_PID=$!
 sleep 2
 
 # Start frontend
-echo "Starting frontend on http://localhost:5173..."
+echo "Starting frontend on host network..."
 cd frontend
-npm run dev &
+npm run dev -- --host &
 FRONTEND_PID=$!
 
 echo ""

@@ -6,6 +6,8 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  onOpenSettings,
+  onLogout,
 }) {
   return (
     <div className="sidebar">
@@ -37,6 +39,15 @@ export default function Sidebar({
             </div>
           ))
         )}
+      </div>
+
+      <div className="sidebar-footer">
+        <button className="settings-trigger-btn" onClick={onOpenSettings}>
+          ⚙ Settings
+        </button>
+        <button className="logout-trigger-btn" onClick={onLogout}>
+          🚪 Log Out
+        </button>
       </div>
     </div>
   );

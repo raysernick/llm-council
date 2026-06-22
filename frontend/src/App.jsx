@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import SettingsModal from './components/SettingsModal';
+import Login from './components/Login';
 import { api } from './api';
 import './App.css';
 
@@ -9,18 +11,69 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [authToken, setAuthToken] = useState(localStorage.getItem('llm_council_auth_token') || '');
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('llm_council_user_email') || '');
 
-  // Load conversations on mount
+  const [settings, setSettings] = useState({
+    openrouterKey: '',
+    azureEndpoint: '',
+    azureKey: '',
+    azureApiVersion: '2024-06-01',
+    councilModels: ['openai/gpt-5.1', 'google/gemini-3-pro-preview', 'anthropic/claude-sonnet-4.5', 'x-ai/grok-4'],
+    chairmanModel: 'google/gemini-3-pro-preview'
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Load settings on mount
   useEffect(() => {
-    loadConversations();
+    const saved = localStorage.getItem('llm_council_settings');
+    if (saved) {
+      try {
+        setSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse saved settings:', e);
+      }
+    }
   }, []);
+
+  const handleSaveSettings = (newSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('llm_council_settings', JSON.stringify(newSettings));
+  };
+
+  const handleLoginSuccess = (token, email) => {
+    setAuthToken(token);
+    setUserEmail(email);
+    localStorage.setItem('llm_council_auth_token', token);
+    localStorage.setItem('llm_council_user_email', email);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to log out?')) {
+      setAuthToken('');
+      setUserEmail('');
+      localStorage.removeItem('llm_council_auth_token');
+      localStorage.removeItem('llm_council_user_email');
+      setConversations([]);
+      setCurrentConversationId(null);
+      setCurrentConversation(null);
+    }
+  };
+
+  // Load conversations when authenticated
+  useEffect(() => {
+    if (authToken) {
+      loadConversations();
+    }
+  }, [authToken]);
 
   // Load conversation details when selected
   useEffect(() => {
-    if (currentConversationId) {
+    if (currentConversationId && authToken) {
       loadConversation(currentConversationId);
     }
-  }, [currentConversationId]);
+  }, [currentConversationId, authToken]);
 
   const loadConversations = async () => {
     try {
@@ -90,62 +143,104 @@ function App() {
       }));
 
       // Send message with streaming
-      await api.sendMessageStream(currentConversationId, content, (eventType, event) => {
+      await api.sendMessageStream(currentConversationId, content, settings, (eventType, event) => {
         switch (eventType) {
           case 'stage1_start':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage1 = true;
+              if (!prev || !prev.messages || prev.messages.length === 0) return prev;
+              const messages = prev.messages.map((msg, idx) => {
+                if (idx === prev.messages.length - 1) {
+                  return {
+                    ...msg,
+                    loading: { ...msg.loading, stage1: true }
+                  };
+                }
+                return msg;
+              });
               return { ...prev, messages };
             });
             break;
 
           case 'stage1_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage1 = event.data;
-              lastMsg.loading.stage1 = false;
+              if (!prev || !prev.messages || prev.messages.length === 0) return prev;
+              const messages = prev.messages.map((msg, idx) => {
+                if (idx === prev.messages.length - 1) {
+                  return {
+                    ...msg,
+                    stage1: event.data,
+                    loading: { ...msg.loading, stage1: false }
+                  };
+                }
+                return msg;
+              });
               return { ...prev, messages };
             });
             break;
 
           case 'stage2_start':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage2 = true;
+              if (!prev || !prev.messages || prev.messages.length === 0) return prev;
+              const messages = prev.messages.map((msg, idx) => {
+                if (idx === prev.messages.length - 1) {
+                  return {
+                    ...msg,
+                    loading: { ...msg.loading, stage2: true }
+                  };
+                }
+                return msg;
+              });
               return { ...prev, messages };
             });
             break;
 
           case 'stage2_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage2 = event.data;
-              lastMsg.metadata = event.metadata;
-              lastMsg.loading.stage2 = false;
+              if (!prev || !prev.messages || prev.messages.length === 0) return prev;
+              const messages = prev.messages.map((msg, idx) => {
+                if (idx === prev.messages.length - 1) {
+                  return {
+                    ...msg,
+                    stage2: event.data,
+                    metadata: event.metadata,
+                    loading: { ...msg.loading, stage2: false }
+                  };
+                }
+                return msg;
+              });
               return { ...prev, messages };
             });
             break;
 
           case 'stage3_start':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage3 = true;
+              if (!prev || !prev.messages || prev.messages.length === 0) return prev;
+              const messages = prev.messages.map((msg, idx) => {
+                if (idx === prev.messages.length - 1) {
+                  return {
+                    ...msg,
+                    loading: { ...msg.loading, stage3: true }
+                  };
+                }
+                return msg;
+              });
               return { ...prev, messages };
             });
             break;
 
           case 'stage3_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage3 = event.data;
-              lastMsg.loading.stage3 = false;
+              if (!prev || !prev.messages || prev.messages.length === 0) return prev;
+              const messages = prev.messages.map((msg, idx) => {
+                if (idx === prev.messages.length - 1) {
+                  return {
+                    ...msg,
+                    stage3: event.data,
+                    loading: { ...msg.loading, stage3: false }
+                  };
+                }
+                return msg;
+              });
               return { ...prev, messages };
             });
             break;
@@ -181,6 +276,10 @@ function App() {
     }
   };
 
+  if (!authToken) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="app">
       <Sidebar
@@ -188,11 +287,19 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onLogout={handleLogout}
       />
       <ChatInterface
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+      />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSaveSettings}
+        currentSettings={settings}
       />
     </div>
   );
