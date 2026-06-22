@@ -11,6 +11,8 @@ if [ -f ".venv/bin/python" ]; then
   .venv/bin/python -m backend.main &
 elif command -v uv &> /dev/null; then
   uv run python -m backend.main &
+elif command -v python3 &> /dev/null; then
+  python3 -m backend.main &
 else
   python -m backend.main &
 fi
