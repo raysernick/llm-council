@@ -7,7 +7,13 @@ echo ""
 
 # Start backend
 echo "Starting backend on http://localhost:8001..."
-uv run python -m backend.main &
+if [ -f ".venv/bin/python" ]; then
+  .venv/bin/python -m backend.main &
+elif command -v uv &> /dev/null; then
+  uv run python -m backend.main &
+else
+  python -m backend.main &
+fi
 BACKEND_PID=$!
 
 # Wait a bit for backend to start
