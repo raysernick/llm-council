@@ -113,6 +113,85 @@ async def get_conversation(conversation_id: str, current_user: str = Depends(get
     return conversation
 
 
+@app.get("/api/conversations/{conversation_id}/download")
+async def download_conversation(conversation_id: str, current_user: str = Depends(get_current_user)):
+    """Download a conversation as Markdown."""
+    from fastapi.responses import PlainTextResponse
+
+    conversation = storage.get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    title = conversation.get("title", "Conversation")
+    lines = [f"# {title}", ""]
+
+    messages = conversation.get("messages", [])
+    for idx, msg in enumerate(messages):
+        if msg.get("followup_group") is not None:
+            continue
+
+        if msg["role"] == "user":
+            lines.append("## User")
+            lines.append("")
+            lines.append(msg["content"])
+            lines.append("")
+        else:
+            lines.append("## LLM Council")
+            lines.append("")
+
+            stage1 = msg.get("stage1") or []
+            if stage1:
+                lines.append("### Stage 1: Individual Responses")
+                lines.append("")
+                for r in stage1:
+                    model = r.get("model", "Unknown")
+                    response_text = r.get("response", "")
+                    lines.append(f"#### {model}")
+                    lines.append("")
+                    lines.append(response_text)
+                    lines.append("")
+
+            stage2 = msg.get("stage2") or []
+            if stage2:
+                lines.append("### Stage 2: Peer Rankings")
+                lines.append("")
+                for r in stage2:
+                    model = r.get("model", "Unknown")
+                    ranking = r.get("ranking", "")
+                    lines.append(f"#### {model}")
+                    lines.append("")
+                    lines.append(ranking)
+                    lines.append("")
+
+            stage3 = msg.get("stage3") or {}
+            response_text = stage3.get("response", "")
+            if response_text:
+                lines.append("### Stage 3: Final Synthesis")
+                lines.append("")
+                lines.append(response_text)
+                lines.append("")
+
+            followups = [m for m in messages if m.get("followup_group") == idx]
+            if followups:
+                lines.append("### Follow-up Discussion")
+                lines.append("")
+                for f in followups:
+                    label = f"User (to {f.get('model', 'council')})" if f["role"] == "user" else f"Assistant ({f.get('model', 'council')})"
+                    lines.append(f"**{label}:**")
+                    lines.append("")
+                    lines.append(f["content"])
+                    lines.append("")
+
+    markdown_content = "\n".join(lines)
+
+    filename = f"{title.lower().replace(' ', '-')[:50]}.md"
+    return PlainTextResponse(
+        content=markdown_content,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
 @app.post("/api/conversations/{conversation_id}/message")
 async def send_message(conversation_id: str, request: SendMessageRequest, current_user: str = Depends(get_current_user)):
     """

@@ -226,4 +226,25 @@ export const api = {
     }
     return response.json();
   },
+
+  async downloadConversation(conversationId) {
+    const response = await fetch(
+      `${API_BASE}/api/conversations/${conversationId}/download`,
+      { headers: getHeaders() }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to download conversation');
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?(.+?)"?$/);
+    a.download = match ? match[1] : 'conversation.md';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

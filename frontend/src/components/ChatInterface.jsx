@@ -4,6 +4,7 @@ import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import FollowUpChat from './FollowUpChat';
+import { api } from '../api';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -50,8 +51,24 @@ export default function ChatInterface({
     );
   }
 
+  const handleDownload = async () => {
+    try {
+      await api.downloadConversation(conversation.id);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+  };
+
   return (
     <div className="chat-interface">
+      {conversation.messages.length > 0 && (
+        <div className="chat-header">
+          <span className="chat-header-title">{conversation.title || 'Conversation'}</span>
+          <button className="download-btn" onClick={handleDownload} title="Download as Markdown">
+            ⬇ Download
+          </button>
+        </div>
+      )}
       <div className="messages-container">
         {conversation.messages.length === 0 ? (
           <div className="empty-state">

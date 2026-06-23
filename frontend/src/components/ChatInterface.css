@@ -6,6 +6,42 @@
   background: #ffffff;
 }
 
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.chat-header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.download-btn {
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  color: #555;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.download-btn:hover {
+  background: #4a90e2;
+  border-color: #4a90e2;
+  color: #fff;
+}
+
 .messages-container {
   flex: 1;
   overflow-y: auto;
