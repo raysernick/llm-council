@@ -170,3 +170,36 @@ def update_conversation_title(conversation_id: str, title: str):
 
     conversation["title"] = title
     save_conversation(conversation)
+
+
+def add_followup_message(
+    conversation_id: str,
+    followup_group: int,
+    role: str,
+    content: str,
+    model: str = None
+):
+    """
+    Add a follow-up message tied to a specific council assistant message index.
+
+    Args:
+        conversation_id: Conversation identifier
+        followup_group: Index of the council assistant message in messages array
+        role: 'user' or 'assistant'
+        content: Message content
+        model: Model name (for user messages, the selected model)
+    """
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+
+    entry = {
+        "role": role,
+        "content": content,
+        "followup_group": followup_group,
+    }
+    if model:
+        entry["model"] = model
+
+    conversation["messages"].append(entry)
+    save_conversation(conversation)

@@ -12,6 +12,7 @@ import asyncio
 from . import storage
 from .auth import get_current_user
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .openrouter import query_model
 
 app = FastAPI(title="LLM Council API")
 
@@ -58,6 +59,15 @@ class Conversation(BaseModel):
     created_at: str
     title: str
     messages: List[Dict[str, Any]]
+
+
+class FollowUpRequest(BaseModel):
+    """Request to send a follow-up message to a specific model."""
+    content: str
+    model: str
+    message_index: int
+    api_keys: Optional[Dict[str, str]] = None
+    azure_settings: Optional[Dict[str, Any]] = None
 
 
 @app.get("/")
@@ -250,6 +260,133 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest,
             "Connection": "keep-alive",
         }
     )
+
+
+@app.post("/api/conversations/{conversation_id}/followup")
+async def send_followup(conversation_id: str, request: FollowUpRequest, current_user: str = Depends(get_current_user)):
+    """
+    Send a follow-up message to a specific model with full council context.
+    Used after Stage 3 completes for continued discussion.
+    """
+    conversation = storage.get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    messages_list = conversation["messages"]
+    if request.message_index < 0 or request.message_index >= len(messages_list):
+        raise HTTPException(status_code=400, detail="Invalid message index")
+
+    council_msg = messages_list[request.message_index]
+    if council_msg["role"] != "assistant" or "stage1" not in council_msg:
+        raise HTTPException(status_code=400, detail="Message is not a council response")
+
+    # Build context messages for the selected model
+    context_messages = _build_followup_context(council_msg, conversation, request.message_index, request.content, request.model)
+
+    # Store user follow-up message
+    storage.add_followup_message(
+        conversation_id, request.message_index, "user", request.content, model=request.model
+    )
+
+    # Query the selected model
+    response = await query_model(
+        request.model, context_messages,
+        api_keys=request.api_keys, azure_settings=request.azure_settings
+    )
+
+    response_content = response.get('content', '') if response else "Model failed to respond."
+    response_model = request.model
+
+    # Store assistant follow-up response
+    storage.add_followup_message(
+        conversation_id, request.message_index, "assistant", response_content
+    )
+
+    return {
+        "role": "assistant",
+        "content": response_content,
+        "model": response_model
+    }
+
+
+def _build_followup_context(
+    council_msg: dict,
+    conversation: dict,
+    council_index: int,
+    new_message: str,
+    selected_model: str
+) -> List[Dict[str, str]]:
+    """Build message list for follow-up query with full council context."""
+
+    # Find the original user question that triggered this council response
+    original_question = ""
+    for i in range(council_index - 1, -1, -1):
+        m = conversation["messages"][i]
+        if m["role"] == "user" and "followup_group" not in m:
+            original_question = m["content"]
+            break
+
+    # Format Stage 1 responses
+    stage1_text = "\n\n".join([
+        f"{r['model']}:\n{r['response']}"
+        for r in (council_msg.get("stage1") or [])
+    ]) or "(No responses)"
+
+    # Format Stage 2 rankings
+    stage2_text = "\n\n".join([
+        f"{r['model']}:\n{r['ranking']}"
+        for r in (council_msg.get("stage2") or [])
+    ]) or "(No rankings)"
+
+    stage3 = council_msg.get("stage3") or {}
+    stage3_text = stage3.get("response", "(No synthesis)")
+
+    # Collect previous follow-ups in this group
+    prev_followups = []
+    for i in range(council_index + 1, len(conversation["messages"])):
+        m = conversation["messages"][i]
+        if m.get("followup_group") == council_index:
+            prev_followups.append(m)
+
+    prev_chat_text = ""
+    if prev_followups:
+        parts = []
+        for m in prev_followups:
+            sender = f"User (to {m.get('model', selected_model)})" if m["role"] == "user" else f"Assistant ({m.get('model', selected_model)})"
+            parts.append(f"{sender}: {m['content']}")
+        prev_chat_text = "\n\n".join(parts)
+
+    system_prompt = f"""You are {selected_model}, a member of the LLM Council. The council has just completed a deliberation on a question. You are now in a follow-up discussion with the user, who has chosen to speak directly with you.
+
+=== COUNCIL DELIBERATION CONTEXT ===
+
+Original Question: {original_question}
+
+Stage 1 - Individual Responses from all council members:
+{stage1_text}
+
+Stage 2 - Peer Rankings:
+{stage2_text}
+
+Stage 3 - Final Synthesis by Chairman ({stage3.get("model", "unknown")}):
+{stage3_text}
+
+=== FOLLOW-UP DISCUSSION ===
+
+Respond helpfully, using the council's deliberation as context for your answers. Reference specific points from the deliberation when relevant."""
+
+    # Build messages array
+    context_messages = [{"role": "system", "content": system_prompt}]
+
+    for m in prev_followups:
+        if m["role"] == "user":
+            context_messages.append({"role": "user", "content": m["content"]})
+        else:
+            context_messages.append({"role": "assistant", "content": m["content"]})
+
+    context_messages.append({"role": "user", "content": new_message})
+
+    return context_messages
 
 
 if __name__ == "__main__":

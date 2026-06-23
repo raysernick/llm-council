@@ -1,0 +1,131 @@
+.followup-chat {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8f9ff;
+  border: 1px solid #d0d5f0;
+  border-radius: 8px;
+}
+
+.followup-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: #3a4a8c;
+}
+
+.followup-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.followup-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.followup-bubble {
+  padding: 10px 14px;
+  border-radius: 8px;
+  max-width: 90%;
+}
+
+.user-followup {
+  align-self: flex-end;
+  background: #e8ecf8;
+  border: 1px solid #d0d5f0;
+}
+
+.assistant-followup {
+  align-self: flex-start;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.followup-bubble-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.followup-bubble-content {
+  font-size: 14px;
+}
+
+.followup-bubble-content p {
+  margin: 0 0 6px;
+}
+
+.followup-bubble-content p:last-child {
+  margin-bottom: 0;
+}
+
+.followup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.followup-model-select select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d0d5f0;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+}
+
+.followup-model-select select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.followup-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.followup-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d0d5f0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 36px;
+}
+
+.followup-input:disabled {
+  opacity: 0.6;
+}
+
+.followup-send-btn {
+  padding: 8px 18px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.followup-send-btn:hover:not(:disabled) {
+  background: #357abd;
+}
+
+.followup-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

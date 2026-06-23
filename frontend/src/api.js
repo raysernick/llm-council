@@ -192,4 +192,38 @@ export const api = {
       }
     }
   },
+
+  async sendFollowup(conversationId, content, model, messageIndex, settings = {}) {
+    const {
+      openrouterKey = '',
+      azureEndpoint = '',
+      azureKey = '',
+      azureApiVersion = '',
+    } = settings || {};
+
+    const response = await fetch(
+      `${API_BASE}/api/conversations/${conversationId}/followup`,
+      {
+        method: 'POST',
+        headers: getHeaders({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          content,
+          model,
+          message_index: messageIndex,
+          api_keys: openrouterKey ? { openrouter: openrouterKey } : null,
+          azure_settings: (azureKey || azureEndpoint) ? {
+            api_key: azureKey,
+            endpoint: azureEndpoint,
+            api_version: azureApiVersion
+          } : null,
+        }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to send follow-up message');
+    }
+    return response.json();
+  },
 };

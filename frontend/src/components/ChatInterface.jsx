@@ -3,12 +3,15 @@ import ReactMarkdown from 'react-markdown';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import FollowUpChat from './FollowUpChat';
 import './ChatInterface.css';
 
 export default function ChatInterface({
   conversation,
   onSendMessage,
   isLoading,
+  onSendFollowup,
+  isFollowupLoading,
 }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
@@ -30,7 +33,6 @@ export default function ChatInterface({
   };
 
   const handleKeyDown = (e) => {
-    // Submit on Enter (without Shift)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -57,57 +59,79 @@ export default function ChatInterface({
             <p>Ask a question to consult the LLM Council</p>
           </div>
         ) : (
-          conversation.messages.map((msg, index) => (
-            <div key={index} className="message-group">
-              {msg.role === 'user' ? (
-                <div className="user-message">
-                  <div className="message-label">You</div>
-                  <div className="message-content">
-                    <div className="markdown-content">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+          conversation.messages.map((msg, index) => {
+            // Skip follow-up messages (rendered inside their parent council message)
+            if (msg.followup_group !== undefined) return null;
+
+            return (
+              <div key={index} className="message-group">
+                {msg.role === 'user' ? (
+                  <div className="user-message">
+                    <div className="message-label">You</div>
+                    <div className="message-content">
+                      <div className="markdown-content">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="assistant-message">
-                  <div className="message-label">LLM Council</div>
+                ) : (
+                  <div className="assistant-message">
+                    <div className="message-label">LLM Council</div>
 
-                  {/* Stage 1 */}
-                  {msg.loading?.stage1 && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 1: Collecting individual responses...</span>
-                    </div>
-                  )}
-                  {msg.stage1 && <Stage1 responses={msg.stage1} />}
+                    {/* Stage 1 */}
+                    {msg.loading?.stage1 && (
+                      <div className="stage-loading">
+                        <div className="spinner"></div>
+                        <span>Running Stage 1: Collecting individual responses...</span>
+                      </div>
+                    )}
+                    {msg.stage1 && <Stage1 responses={msg.stage1} />}
 
-                  {/* Stage 2 */}
-                  {msg.loading?.stage2 && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 2: Peer rankings...</span>
-                    </div>
-                  )}
-                  {msg.stage2 && (
-                    <Stage2
-                      rankings={msg.stage2}
-                      labelToModel={msg.metadata?.label_to_model}
-                      aggregateRankings={msg.metadata?.aggregate_rankings}
-                    />
-                  )}
+                    {/* Stage 2 */}
+                    {msg.loading?.stage2 && (
+                      <div className="stage-loading">
+                        <div className="spinner"></div>
+                        <span>Running Stage 2: Peer rankings...</span>
+                      </div>
+                    )}
+                    {msg.stage2 && (
+                      <Stage2
+                        rankings={msg.stage2}
+                        labelToModel={msg.metadata?.label_to_model}
+                        aggregateRankings={msg.metadata?.aggregate_rankings}
+                      />
+                    )}
 
-                  {/* Stage 3 */}
-                  {msg.loading?.stage3 && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 3: Final synthesis...</span>
-                    </div>
-                  )}
-                  {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
-                </div>
-              )}
-            </div>
-          ))
+                    {/* Stage 3 */}
+                    {msg.loading?.stage3 && (
+                      <div className="stage-loading">
+                        <div className="spinner"></div>
+                        <span>Running Stage 3: Final synthesis...</span>
+                      </div>
+                    )}
+                    {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
+
+                    {/* Follow-up Chat (shown after Stage 3 completes) */}
+                    {msg.stage3 && !msg.loading?.stage3 && (
+                      <FollowUpChat
+                        messageIndex={index}
+                        availableModels={
+                          msg.stage1
+                            ? [...msg.stage1.map(r => r.model), msg.stage3?.model].filter(Boolean)
+                            : []
+                        }
+                        followups={conversation.messages.filter(
+                          m => m.followup_group === index
+                        )}
+                        onSendFollowup={onSendFollowup}
+                        isLoading={isFollowupLoading}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
 
         {isLoading && (

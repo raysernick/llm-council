@@ -11,6 +11,7 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFollowupLoading, setIsFollowupLoading] = useState(false);
   
   const [authToken, setAuthToken] = useState(localStorage.getItem('llm_council_auth_token') || '');
   const [userEmail, setUserEmail] = useState(localStorage.getItem('llm_council_user_email') || '');
@@ -108,6 +109,41 @@ function App() {
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+  };
+
+  const handleSendFollowup = async (messageIndex, content, model) => {
+    if (!currentConversationId) return;
+    setIsFollowupLoading(true);
+    try {
+      const userMsg = {
+        role: 'user',
+        content,
+        followup_group: messageIndex,
+        model,
+      };
+      setCurrentConversation((prev) => ({
+        ...prev,
+        messages: [...prev.messages, userMsg],
+      }));
+
+      const response = await api.sendFollowup(
+        currentConversationId, content, model, messageIndex, settings
+      );
+
+      const assistantMsg = {
+        role: 'assistant',
+        content: response.content,
+        followup_group: messageIndex,
+        model: response.model,
+      };
+      setCurrentConversation((prev) => ({
+        ...prev,
+        messages: [...prev.messages, assistantMsg],
+      }));
+    } catch (error) {
+      console.error('Failed to send follow-up:', error);
+    }
+    setIsFollowupLoading(false);
   };
 
   const handleSendMessage = async (content) => {
@@ -294,6 +330,8 @@ function App() {
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+        onSendFollowup={handleSendFollowup}
+        isFollowupLoading={isFollowupLoading}
       />
       <SettingsModal
         isOpen={isSettingsOpen}
